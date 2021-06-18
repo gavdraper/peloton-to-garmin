@@ -14,17 +14,22 @@ using Metrics = Prometheus.Metrics;
 
 namespace Peloton
 {
-	public class PelotonService
+	public interface IPelotonService
+	{
+		Task DownloadLatestWorkoutDataAsync();
+	}
+
+	public class PelotonService : IPelotonService
 	{
 		public static readonly Histogram WorkoutDownloadDuration = Metrics.CreateHistogram("p2g_peloton_workout_download_duration_seconds", "Histogram of the entire time to download a single workouts data.");
 
-		private Configuration _config;
-		private ApiClient _pelotonApi;
-		private DbClient _dbClient;
+		private IAppConfiguration _config;
+		private IPelotonApi _pelotonApi;
+		private IDbClient _dbClient;
 		private int _failedCount;
 		private IFileHandling _fileHandler;
 
-		public PelotonService(Configuration config, ApiClient pelotonApi, DbClient dbClient, IFileHandling fileHandler)
+		public PelotonService(IAppConfiguration config, IPelotonApi pelotonApi, IDbClient dbClient, IFileHandling fileHandler)
 		{
 			_config = config;
 			_pelotonApi = pelotonApi;
