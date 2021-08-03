@@ -23,6 +23,7 @@ namespace Peloton
 	public class PelotonService : IPelotonService
 	{
 		public static readonly Histogram WorkoutDownloadDuration = Metrics.CreateHistogram("p2g_peloton_workout_download_duration_seconds", "Histogram of the entire time to download a single workouts data.");
+		private static readonly ILogger _logger = LogContext.ForClass<PelotonService>();
 
 		private IAppConfiguration _config;
 		private IPelotonApi _pelotonApi;
@@ -57,14 +58,14 @@ namespace Peloton
 			var completedWorkouts = recentWorkouts.data.Where(w => 
 			{
 				if (w.Status == "COMPLETE") return true;
-				Log.Debug("Skipping in progress workout. {@WorkoutId} {@WorkoutStatus} {@WorkoutType}", w.Id, w.Status, w.Fitness_Discipline);
+				_logger.Debug("Skipping in progress workout. {@WorkoutId} {@WorkoutStatus} {@WorkoutType}", w.Id, w.Status, w.Fitness_Discipline);
 				return false;
 			});
 
 			var filteredWorkouts = completedWorkouts.Where(w => 
 			{
 				if (!_config.Peloton.ExcludeWorkoutTypes?.Contains(w.Fitness_Discipline) ?? true) return true;
-				Log.Debug("Skipping excluded workout type. {@WorkoutId} {@WorkoutStatus} {@WorkoutType}", w.Id, w.Status, w.Fitness_Discipline);
+				_logger.Debug("Skipping excluded workout type. {@WorkoutId} {@WorkoutStatus} {@WorkoutType}", w.Id, w.Status, w.Fitness_Discipline);
 				return false;
 			});
 
@@ -78,7 +79,7 @@ namespace Peloton
 				SyncHistoryItem syncRecord = _dbClient.Get(recentWorkout.Id);
 				if ((syncRecord?.DownloadDate is object))
 				{
-					Log.Debug("Workout {@WorkoutId} already downloaded, skipping.", recentWorkout.Id);
+					_logger.Debug("Workout {@WorkoutId} already downloaded, skipping.", recentWorkout.Id);
 					continue;
 				}
 
@@ -109,12 +110,12 @@ namespace Peloton
 				{
 					_failedCount++;
 					var title = "workout_failed_to_deserialize_" + _failedCount;
-					Log.Error("Failed to deserialize workout from Peloton. You can find the raw data from the workout here: @FileName", title, e);
+					_logger.Error("Failed to deserialize workout from Peloton. You can find the raw data from the workout here: @FileName", title, e);
 					SaveRawData(data, title);
 					return;
-				}				
+				}
 
-				Log.Debug("Write peloton workout details to file for {@WorkoutId}.", workoutId);
+				_logger.Debug("Write peloton workout details to file for {@WorkoutId}.", workoutId);
 				File.WriteAllText(Path.Join(workingDir, $"{workoutTitle}.json"), data.ToString());
 
 				
@@ -131,13 +132,13 @@ namespace Peloton
 		{
 			if (string.IsNullOrEmpty(config.Email))
 			{
-				Log.Error("Peloton Email required, check your configuration {@ConfigSection}.{@ConfigProperty} is set.", nameof(Peloton), nameof(config.Email));
+				_logger.Error("Peloton Email required, check your configuration {@ConfigSection}.{@ConfigProperty} is set.", nameof(Peloton), nameof(config.Email));
 				throw new ArgumentException("Peloton Email must be set.", nameof(config.Email));
 			}
 
 			if (string.IsNullOrEmpty(config.Password))
 			{
-				Log.Error("Peloton Password required, check your configuration {@ConfigSection}.{@ConfigProperty} is set.", nameof(Peloton), nameof(config.Password));
+				_logger.Error("Peloton Password required, check your configuration {@ConfigSection}.{@ConfigProperty} is set.", nameof(Peloton), nameof(config.Password));
 				throw new ArgumentException("Peloton Password must be set.", nameof(config.Password));
 			}
 		}
@@ -147,7 +148,7 @@ namespace Peloton
 			var outputDir = _config.App.JsonDirectory;
 			_fileHandler.MkDirIfNotExists(outputDir);
 
-			Log.Debug("Write peloton json to file for {@WorkoutId}", data.Workout.Id);
+			_logger.Debug("Write peloton json to file for {@WorkoutId}", data.Workout.Id);
 			File.WriteAllText(Path.Join(outputDir, $"{workoutTitle}.json"), data.ToString());
 		}
 	}
